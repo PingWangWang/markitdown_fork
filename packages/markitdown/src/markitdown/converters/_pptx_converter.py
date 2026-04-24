@@ -4,6 +4,7 @@ import os
 import io
 import re
 import html
+from pathlib import Path
 
 from typing import BinaryIO, Any
 from operator import attrgetter
@@ -78,6 +79,13 @@ class PptxConverter(DocumentConverter):
                 _dependency_exc_info[2]
             )
 
+        # 图片处理参数
+        _images_dir_str = kwargs.pop("pptx_images_dir", None)
+        _images_path = Path(_images_dir_str) if _images_dir_str else None
+        if _images_path:
+            _images_path.mkdir(parents=True, exist_ok=True)
+        _image_counter = [0]
+
         # Perform the conversion
         presentation = pptx.Presentation(file_stream)
         md_content = ""
@@ -140,16 +148,26 @@ class PptxConverter(DocumentConverter):
                     alt_text = re.sub(r"[\r\n\[\]]", " ", alt_text)
                     alt_text = re.sub(r"\s+", " ", alt_text).strip()
 
+                    # If pptx_images_dir is set, save to file
+                    if _images_path:
+                        _image_counter[0] += 1
+                        content_type = shape.image.content_type or "image/png"
+                        ext = content_type.split("/")[-1].lower()
+                        if ext == "jpeg":
+                            ext = "jpg"
+                        filename = f"image{_image_counter[0]:03d}.{ext}"
+                        (_images_path / filename).write_bytes(shape.image.blob)
+                        img_src = f"{_images_path.name}/{filename}"
+                        md_content += f"\n![{alt_text}]({img_src})\n"
                     # If keep_data_uris is True, use base64 encoding for images
-                    if kwargs.get("keep_data_uris", False):
+                    elif kwargs.get("keep_data_uris", False):
                         blob = shape.image.blob
                         content_type = shape.image.content_type or "image/png"
                         b64_string = base64.b64encode(blob).decode("utf-8")
                         md_content += f"\n![{alt_text}](data:{content_type};base64,{b64_string})\n"
                     else:
-                        # A placeholder name
-                        filename = re.sub(r"\W", "", shape.name) + ".jpg"
-                        md_content += "\n![" + alt_text + "](" + filename + ")\n"
+                        # 忽略图片（不输出任何内容）
+                        pass
 
                 # Tables
                 if self._is_table(shape):

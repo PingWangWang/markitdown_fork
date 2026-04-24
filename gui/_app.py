@@ -25,6 +25,7 @@ from _dialogs import show_about, ask_overwrite
 _FILE_TYPE_MAP = {
     '.pdf':   'PDF 文档',
     '.docx':  'Word 文档',
+    '.doc':   'Word 文档(旧版)',
     '.xlsx':  'Excel 表格',
     '.xls':   'Excel 表格(旧版)',
     '.pptx':  'PowerPoint 演示文稿',
@@ -67,6 +68,7 @@ class MarkItDownGUI:
 
         self.input_files     = []
         self.output_dir      = tk.StringVar()
+        self.image_mode = tk.StringVar(value='embed')  # 'file' | 'embed' | 'none'
         self.is_processing   = False
         self.last_output_file = None  # 最后一次转换的输出路径（用于"打开文件夹并选中"）
 
@@ -197,6 +199,18 @@ class MarkItDownGUI:
                    style='Select.TButton', width=10).grid(row=0, column=1)
         row += 1
 
+        # 图片处理方式（适用于 DOCX / PPTX 等含图文档）
+        ttk.Label(mf, text="图片处理方式:", style='Field.TLabel').grid(
+            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
+        rf = ttk.Frame(mf);  rf.grid(row=row, column=1, sticky=tk.W, pady=4)
+        ttk.Radiobutton(rf, text="提取为文件（推荐）", variable=self.image_mode,
+                        value='file').pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Radiobutton(rf, text="嵌入 base64",       variable=self.image_mode,
+                        value='embed').pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Radiobutton(rf, text="忽略图片",           variable=self.image_mode,
+                        value='none').pack(side=tk.LEFT)
+        row += 1
+
         # 分割线
         ttk.Separator(mf, orient='horizontal').grid(
             row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=6)
@@ -257,8 +271,8 @@ class MarkItDownGUI:
     def select_files(self):
         filetypes = [
             ('所有支持的文件',
-             '*.pdf *.docx *.xlsx *.pptx *.jpg *.jpeg *.png *.html *.csv *.json *.xml *.zip *.epub'),
-            ('PDF 文件', '*.pdf'), ('Word 文件', '*.docx'), ('Excel 文件', '*.xlsx'),
+             '*.pdf *.docx *.doc *.xlsx *.pptx *.jpg *.jpeg *.png *.html *.csv *.json *.xml *.zip *.epub'),
+            ('PDF 文件', '*.pdf'), ('Word 文件', '*.docx *.doc'), ('Excel 文件', '*.xlsx'),
             ('PowerPoint 文件', '*.pptx'), ('图片文件', '*.jpg *.jpeg *.png'),
             ('HTML 文件', '*.html'), ('所有文件', '*.*'),
         ]
@@ -338,8 +352,32 @@ class MarkItDownGUI:
         try:
             from markitdown import MarkItDown
             self.log_message("  → 初始化 MarkItDown 转换器...")
-            result = MarkItDown().convert(file_path)
-            output_file = Path(self.output_dir.get()) / f"{Path(file_path).stem}.md"
+
+            stem = Path(file_path).stem
+            ext  = Path(file_path).suffix.lower()
+            convert_kwargs = {}
+
+            # 根据用户选择的图片处理方式，对含图片的格式传入对应参数
+            mode = self.image_mode.get()
+            if ext in ('.docx', '.doc'):
+                if mode == 'file':
+                    images_dir = Path(self.output_dir.get()) / f"{stem}_images"
+                    convert_kwargs['docx_images_dir'] = str(images_dir)
+                elif mode == 'embed':
+                    convert_kwargs['docx_embed_images'] = True
+            elif ext in ('.pptx',):
+                if mode == 'file':
+                    images_dir = Path(self.output_dir.get()) / f"{stem}_images"
+                    convert_kwargs['pptx_images_dir'] = str(images_dir)
+                elif mode == 'embed':
+                    convert_kwargs['keep_data_uris'] = True
+            else:
+                # 其他格式（HTML、EPUB 等）：嵌入模式透传 keep_data_uris
+                if mode == 'embed':
+                    convert_kwargs['keep_data_uris'] = True
+
+            result = MarkItDown().convert(file_path, **convert_kwargs)
+            output_file = Path(self.output_dir.get()) / f"{stem}.md"
             self.log_message(f"  → 保存结果到: {output_file}")
             if output_file.exists() and not self._ask_overwrite(output_file.name):
                 self.log_message(f"  ✗ 已跳过: {output_file.name}");  return
