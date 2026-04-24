@@ -173,8 +173,10 @@ cmd = [
     '--exclude-module', 'jupyter',
     '--exclude-module', 'notebook',
     '--exclude-module', 'tkinter.test',
+    '--icon', str(project_root / 'res' / 'ProductIcon.ico'),
     '--add-data', f"{project_root / 'packages' / 'markitdown' / 'src' / 'markitdown'}{sep}markitdown",
     '--add-data', f"{magika_dir}{sep}magika",
+    '--add-data', f"{project_root / 'res' / 'ProductIcon.ico'}{sep}res",
     '--paths', str(project_root / 'packages' / 'markitdown' / 'src'),
     '--windowed',
     str(project_root / 'gui' / 'markitdown_gui.py')

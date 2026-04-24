@@ -66,11 +66,6 @@ class MarkItDownGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"MarkItDown v{APP_VERSION}")
-        # 去除系统标题栏
-        self.root.overrideredirect(True)
-        
-        # 先隐藏窗口，避免位置闪现
-        self.root.withdraw()
         
         # 设置窗口尺寸
         window_width = 680
@@ -81,16 +76,11 @@ class MarkItDownGUI:
         screen_height = self.root.winfo_screenheight()
         x = (screen_width - window_width) // 2
         y = (screen_height - window_height) // 2
-        
-        # 设置窗口几何属性
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
         self.root.resizable(False, False)
         
-        # 在窗口首次显示前设好任务栏样式，deiconify 时 Windows 会在此刻创建任务栏图标槽
-        self._setup_taskbar_icon()
-        
-        # 窗口居中显示
-        self.root.deiconify()
+        # 设置窗口图标（任务栏 & 标题栏）
+        self._set_window_icon()
         
         # 变量
         self.input_files = []
@@ -104,6 +94,43 @@ class MarkItDownGUI:
         # 创建界面
         self.create_widgets()
         
+        # 延迟重新应用图标（窗口完全显示后任务栏图标才能正确生效）
+        self.root.after(100, self._set_window_icon)
+        
+    def _get_icon_path(self):
+        """获取图标文件路径（打包环境和开发环境均适用）"""
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            p = Path(meipass) / 'res' / 'ProductIcon.ico'
+        else:
+            p = Path(__file__).parent.parent / 'res' / 'ProductIcon.ico'
+        return p if p.exists() else None
+
+    def _set_window_icon(self):
+        """设置窗口图标（任务栏 & 标题栏）"""
+        try:
+            if sys.platform == 'win32':
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('MarkItDown.GUI.App')
+
+            icon_path = self._get_icon_path()
+            if icon_path:
+                # default= 参数确保后续所有子窗口也继承该图标，同时对任务栏更可靠
+                self.root.iconbitmap(default=str(icon_path))
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(str(icon_path)).resize((32, 32), Image.LANCZOS)
+                    self._taskbar_photo = ImageTk.PhotoImage(img)
+                    self.root.wm_iconphoto(True, self._taskbar_photo)
+                    img_small = Image.open(str(icon_path)).resize((16, 16), Image.LANCZOS)
+                    self._icon_image = ImageTk.PhotoImage(img_small)
+                except Exception:
+                    self._icon_image = None
+            else:
+                self._icon_image = None
+        except Exception:
+            self._icon_image = None
+    
     def setup_styles(self):
         """设置界面样式"""
         # 配色常量
@@ -196,50 +223,6 @@ class MarkItDownGUI:
         
     def create_widgets(self):
         """创建界面组件"""
-        # 顶部自定义标题栏
-        header_frame = tk.Frame(self.root, bg=self.C_HEADER_BG, height=46)
-        header_frame.pack(fill=tk.X, side=tk.TOP)
-        header_frame.pack_propagate(False)
-
-        # 标题文字
-        title_label = tk.Label(header_frame, text=f"MarkItDown v{APP_VERSION}",
-                 bg=self.C_HEADER_BG, fg=self.C_HEADER_FG,
-                 font=('Microsoft YaHei UI', 13, 'bold'))
-        title_label.pack(side=tk.LEFT, padx=16, pady=8)
-
-        # 窗口控制按钮（右侧）
-        btn_close = tk.Label(header_frame, text=" × ",
-            bg=self.C_HEADER_BG, fg='#FFFFFF',
-            font=('Microsoft YaHei UI', 14, 'bold'), cursor='hand2')
-        btn_close.pack(side=tk.RIGHT, padx=(0, 4))
-        btn_close.bind('<Button-1>', lambda e: self.root.destroy())
-        btn_close.bind('<Enter>', lambda e: btn_close.config(bg='#E53E3E'))
-        btn_close.bind('<Leave>', lambda e: btn_close.config(bg=self.C_HEADER_BG))
-
-        btn_max = tk.Label(header_frame, text=" □ ",
-            bg=self.C_HEADER_BG, fg='#FFFFFF',
-            font=('Microsoft YaHei UI', 12), cursor='hand2')
-        btn_max.pack(side=tk.RIGHT)
-        btn_max.bind('<Button-1>', lambda e: self._toggle_maximize())
-        btn_max.bind('<Enter>', lambda e: btn_max.config(bg='#357ABD'))
-        btn_max.bind('<Leave>', lambda e: btn_max.config(bg=self.C_HEADER_BG))
-
-        btn_min = tk.Label(header_frame, text=" — ",
-            bg=self.C_HEADER_BG, fg='#FFFFFF',
-            font=('Microsoft YaHei UI', 12), cursor='hand2')
-        btn_min.pack(side=tk.RIGHT)
-        btn_min.bind('<Button-1>', lambda e: self._minimize())
-        btn_min.bind('<Enter>', lambda e: btn_min.config(bg='#357ABD'))
-        btn_min.bind('<Leave>', lambda e: btn_min.config(bg=self.C_HEADER_BG))
-
-        # 拖拽移动窗口 & 双击最大化/还原
-        self._drag_x = 0
-        self._drag_y = 0
-        for widget in (header_frame, title_label):
-            widget.bind('<ButtonPress-1>', self._on_drag_start)
-            widget.bind('<B1-Motion>', self._on_drag_move)
-            widget.bind('<Double-Button-1>', lambda e: self._toggle_maximize())
-
         # 主容器
         main_frame = ttk.Frame(self.root, padding="14 10 14 6")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -662,62 +645,6 @@ class MarkItDownGUI:
         self.root.after(0, _show)
         event.wait()
         return result[0]
-
-    def _on_drag_start(self, event):
-        self._drag_x = event.x_root - self.root.winfo_x()
-        self._drag_y = event.y_root - self.root.winfo_y()
-
-    def _on_drag_move(self, event):
-        x = event.x_root - self._drag_x
-        y = event.y_root - self._drag_y
-        self.root.geometry(f'+{x}+{y}')
-
-    def _minimize(self):
-        self.root.overrideredirect(False)
-        self.root.update()   # 让窗口管理器识别该窗口
-        self.root.iconify()
-        self.root.bind('<Map>', self._on_restore)
-
-    def _on_restore(self, event):
-        self.root.overrideredirect(True)
-        self.root.unbind('<Map>')
-        self.root.after(50, self._setup_taskbar_icon)
-
-    def _setup_taskbar_icon(self):
-        """强制 Windows 任务栏显示图标（在窗口隐藏状态下调用效果最佳）"""
-        if sys.platform != 'win32':
-            return
-        try:
-            import ctypes
-            GWL_EXSTYLE      = -20
-            WS_EX_APPWINDOW  = 0x00040000
-            WS_EX_TOOLWINDOW = 0x00000080
-            SWP_NOMOVE       = 0x0002
-            SWP_NOSIZE       = 0x0001
-            SWP_NOZORDER     = 0x0004
-            SWP_FRAMECHANGED = 0x0020
-            hwnd = self.root.winfo_id()
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
-            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-            ctypes.windll.user32.SetWindowPos(
-                hwnd, None, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
-        except Exception:
-            pass
-
-    def _toggle_maximize(self):
-        if getattr(self, '_maximized', False):
-            self._maximized = False
-            w, h = 680, 500
-            sw = self.root.winfo_screenwidth()
-            sh = self.root.winfo_screenheight()
-            self.root.geometry(f'{w}x{h}+{(sw-w)//2}+{(sh-h)//2}')
-        else:
-            self._maximized = True
-            sw = self.root.winfo_screenwidth()
-            sh = self.root.winfo_screenheight()
-            self.root.geometry(f'{sw}x{sh}+0+0')
 
     def processing_complete(self):
         """处理完成"""
