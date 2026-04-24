@@ -11,6 +11,12 @@ import glob
 from pathlib import Path
 from datetime import datetime
 
+# 强制 stdout/stderr 使用 UTF-8，避免 Windows GBK 终端报 UnicodeEncodeError
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # 日志美化函数
 def log_info(msg):
     print(f"  [INFO] {datetime.now().strftime('%H:%M:%S')} | {msg}")
@@ -21,10 +27,10 @@ def log_step(msg):
     print(f"{'='*60}")
 
 def log_success(msg):
-    print(f"\n  ✅ {msg}")
+    print(f"\n  [OK] {msg}")
 
 def log_error(msg):
-    print(f"\n  ❌ {msg}")
+    print(f"\n  [FAIL] {msg}")
 
 # 获取项目根目录（build_exe.py 在 build/ 目录，需要向上一级）
 project_root = Path(__file__).parent.parent
@@ -65,7 +71,7 @@ build_dir = project_root / 'build'
 if build_dir.exists():
     # 只删除 build/ 目录中的 PyInstaller 临时文件，保留脚本和文档
     for item in build_dir.iterdir():
-        if item.name not in ['build_exe.py', 'README.md']:
+        if item.name not in ['build_exe.py', 'README.md', 'hook_onnxruntime.py']:
             if item.is_dir():
                 shutil.rmtree(item)
                 log_info(f"已删除 {item.name}/")
@@ -92,8 +98,7 @@ magika_spec = importlib.util.find_spec('magika')
 if magika_spec is None or magika_spec.origin is None:
     log_error("未找到 magika 包，请先安装: pip install magika")
     sys.exit(1)
-magika_dir = Path(magika_spec.origin).parent
-log_info(f"magika 路径: {magika_dir}")
+log_info(f"magika 已找到: {magika_spec.origin}")
 sep = ';' if sys.platform == 'win32' else ':'
 
 # 构建 PyInstaller 命令
@@ -176,9 +181,11 @@ cmd = [
     '--exclude-module', 'jupyter',
     '--exclude-module', 'notebook',
     '--exclude-module', 'tkinter.test',
+    '--collect-all', 'onnxruntime',
+    '--collect-all', 'magika',
+    '--runtime-hook', str(project_root / 'build' / 'hook_onnxruntime.py'),
     '--icon', str(project_root / 'res' / 'ProductIcon.ico'),
     '--add-data', f"{project_root / 'packages' / 'markitdown' / 'src' / 'markitdown'}{sep}markitdown",
-    '--add-data', f"{magika_dir}{sep}magika",
     '--add-data', f"{project_root / 'res' / 'ProductIcon.ico'}{sep}res",
     '--paths', str(project_root / 'packages' / 'markitdown' / 'src'),
     '--windowed',
