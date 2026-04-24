@@ -5,62 +5,58 @@
 [![Built by AutoGen Team](https://img.shields.io/badge/Built%20by-AutoGen%20Team-blue)](https://github.com/microsoft/autogen)
 
 > [!IMPORTANT]
-> MarkItDown performs I/O with the privileges of the current process. Like open() or requests.get(), it will access resources that the process itself can access. Sanitize your inputs in untrusted environments, and call the narrowest `convert_*` function needed for your use case (e.g., `convert_stream()`, or `convert_local()`). See the [Security Considerations](#security-considerations) section of the documentation for more information.
+> MarkItDown 以当前进程的权限执行 I/O 操作。与 open() 或 requests.get() 类似，它将访问进程本身可以访问的资源。在不受信任的环境中，请对输入进行清理，并调用最适合您用例的 `convert_*` 函数（例如，`convert_stream()` 或 `convert_local()`）。有关更多信息，请参阅文档中的[安全注意事项](#安全注意事项)部分。
 
-MarkItDown is a lightweight Python utility for converting various files to Markdown for use with LLMs and related text analysis pipelines. To this end, it is most comparable to [textract](https://github.com/deanmalmgren/textract), but with a focus on preserving important document structure and content as Markdown (including: headings, lists, tables, links, etc.) While the output is often reasonably presentable and human-friendly, it is meant to be consumed by text analysis tools -- and may not be the best option for high-fidelity document conversions for human consumption.
+MarkItDown 是一个轻量级的 Python 工具，用于将各种文件格式转换为 Markdown，以便用于 LLM 和相关的文本分析管道。在这方面，它与 [textract](https://github.com/deanmalmgren/textract) 最为相似，但侧重于将重要的文档结构和内容保留为 Markdown 格式（包括：标题、列表、表格、链接等）。虽然输出通常相当可观且对人类友好，但它旨在供文本分析工具使用——可能不是高保真文档转换以供人类消费的最佳选择。
 
-MarkItDown currently supports the conversion from:
+MarkItDown 目前支持从以下格式转换：
 
 - PDF
 - PowerPoint
 - Word
 - Excel
-- Images (EXIF metadata and OCR)
-- Audio (EXIF metadata and speech transcription)
+- 图片（EXIF 元数据和 OCR）
+- 音频（EXIF 元数据和语音转录）
 - HTML
-- Text-based formats (CSV, JSON, XML)
-- ZIP files (iterates over contents)
-- Youtube URLs
-- EPubs
-- ... and more!
+- 基于文本的格式（CSV、JSON、XML）
+- ZIP 文件（迭代处理内容）
+- YouTube URL
+- EPub
+- ... 以及更多！
 
-## Why Markdown?
+## 为什么选择 Markdown？
 
-Markdown is extremely close to plain text, with minimal markup or formatting, but still
-provides a way to represent important document structure. Mainstream LLMs, such as
-OpenAI's GPT-4o, natively "_speak_" Markdown, and often incorporate Markdown into their
-responses unprompted. This suggests that they have been trained on vast amounts of
-Markdown-formatted text, and understand it well. As a side benefit, Markdown conventions
-are also highly token-efficient.
+Markdown 非常接近平面文本，几乎没有标记或格式化，但仍然提供了一种表示重要文档结构的方式。主流 LLM，如 OpenAI 的 GPT-4o，原生"_说_" Markdown，并且经常在其响应中未经提示地加入 Markdown。这表明它们已经接受了大量 Markdown 格式文本的训练，并且对其理解良好。作为附带好处，Markdown 约定也非常节省 token。
 
-## Prerequisites
-MarkItDown requires Python 3.10 or higher. It is recommended to use a virtual environment to avoid dependency conflicts.
+## 前置要求
 
-With the standard Python installation, you can create and activate a virtual environment using the following commands:
+MarkItDown 需要 Python 3.10 或更高版本。建议使用虚拟环境以避免依赖冲突。
+
+使用标准 Python 安装，您可以使用以下命令创建和激活虚拟环境：
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 ```
 
-If using `uv`, you can create a virtual environment with:
+如果使用 `uv`，您可以使用以下命令创建虚拟环境：
 
 ```bash
 uv venv --python=3.12 .venv
 source .venv/bin/activate
-# NOTE: Be sure to use 'uv pip install' rather than just 'pip install' to install packages in this virtual environment
+# 注意：务必使用 'uv pip install' 而不是 'pip install' 来在此虚拟环境中安装包
 ```
 
-If you are using Anaconda, you can create a virtual environment with:
+如果您使用的是 Anaconda，可以使用以下命令创建虚拟环境：
 
 ```bash
 conda create -n markitdown python=3.12
 conda activate markitdown
 ```
 
-## Installation
+## 安装
 
-To install MarkItDown, use pip: `pip install 'markitdown[all]'`. Alternatively, you can install it from the source:
+要安装 MarkItDown，请使用 pip：`pip install 'markitdown[all]'`。或者，您可以从源代码安装：
 
 ```bash
 git clone git@github.com:microsoft/markitdown.git
@@ -68,78 +64,79 @@ cd markitdown
 pip install -e 'packages/markitdown[all]'
 ```
 
-## Usage
+## 使用方法
 
-### Command-Line
+### 命令行
 
 ```bash
 markitdown path-to-file.pdf > document.md
 ```
 
-Or use `-o` to specify the output file:
+或使用 `-o` 指定输出文件：
 
 ```bash
 markitdown path-to-file.pdf -o document.md
 ```
 
-You can also pipe content:
+您也可以管道输入内容：
 
 ```bash
 cat path-to-file.pdf | markitdown
 ```
 
-### Optional Dependencies
-MarkItDown has optional dependencies for activating various file formats. Earlier in this document, we installed all optional dependencies with the `[all]` option. However, you can also install them individually for more control. For example:
+### 可选依赖项
+
+MarkItDown 具有可选依赖项，用于激活各种文件格式。在本文档前面，我们使用 `[all]` 选项安装了所有可选依赖项。但是，您也可以单独安装它们以获得更多控制。例如：
 
 ```bash
 pip install 'markitdown[pdf, docx, pptx]'
 ```
 
-will install only the dependencies for PDF, DOCX, and PPTX files.
+将仅安装 PDF、DOCX 和 PPTX 文件的依赖项。
 
-At the moment, the following optional dependencies are available:
+目前，以下可选依赖项可用：
 
-* `[all]` Installs all optional dependencies
-* `[pptx]` Installs dependencies for PowerPoint files
-* `[docx]` Installs dependencies for Word files
-* `[xlsx]` Installs dependencies for Excel files
-* `[xls]` Installs dependencies for older Excel files
-* `[pdf]` Installs dependencies for PDF files
-* `[outlook]` Installs dependencies for Outlook messages
-* `[az-doc-intel]` Installs dependencies for Azure Document Intelligence
-* `[audio-transcription]` Installs dependencies for audio transcription of wav and mp3 files
-* `[youtube-transcription]` Installs dependencies for fetching YouTube video transcription
+- `[all]` 安装所有可选依赖项
+- `[pptx]` 安装 PowerPoint 文件的依赖项
+- `[docx]` 安装 Word 文件的依赖项
+- `[xlsx]` 安装 Excel 文件的依赖项
+- `[xls]` 安装旧版 Excel 文件的依赖项
+- `[pdf]` 安装 PDF 文件的依赖项
+- `[outlook]` 安装 Outlook 消息的依赖项
+- `[az-doc-intel]` 安装 Azure Document Intelligence 的依赖项
+- `[audio-transcription]` 安装 wav 和 mp3 文件音频转录的依赖项
+- `[youtube-transcription]` 安装获取 YouTube 视频转录的依赖项
 
-### Plugins
+### 插件
 
-MarkItDown also supports 3rd-party plugins. Plugins are disabled by default. To list installed plugins:
+MarkItDown 还支持第三方插件。默认情况下禁用插件。要列出已安装的插件：
 
 ```bash
 markitdown --list-plugins
 ```
 
-To enable plugins use:
+要启用插件，请使用：
 
 ```bash
 markitdown --use-plugins path-to-file.pdf
 ```
 
-To find available plugins, search GitHub for the hashtag `#markitdown-plugin`. To develop a plugin, see `packages/markitdown-sample-plugin`.
+要查找可用插件，请在 GitHub 上搜索标签 `#markitdown-plugin`。要开发插件，请参阅 `packages/markitdown-sample-plugin`。
 
-#### markitdown-ocr Plugin
+#### markitdown-ocr 插件
 
-The `markitdown-ocr` plugin adds OCR support to PDF, DOCX, PPTX, and XLSX converters, extracting text from embedded images using LLM Vision — the same `llm_client` / `llm_model` pattern that MarkItDown already uses for image descriptions. No new ML libraries or binary dependencies required.
+`markitdown-ocr` 插件为 PDF、DOCX、PPTX 和 XLSX 转换器添加 OCR 支持，使用 LLM Vision 从嵌入图像中提取文本——与 MarkItDown 已用于图像描述的相同 `llm_client` / `llm_model` 模式。不需要新的 ML 库或二进制依赖项。
 
-**Installation:**
+**安装：**
 
 ```bash
 pip install markitdown-ocr
-pip install openai  # or any OpenAI-compatible client
+pip install openai  # 或任何 OpenAI 兼容客户端
 ```
 
-**Usage:**
+**使用方法：**
 
-Pass the same `llm_client` and `llm_model` you would use for image descriptions:
+传递与用于图像描述相同的 `llm_client` 和 `llm_model`：
 
 ```python
 from markitdown import MarkItDown
@@ -154,33 +151,33 @@ result = md.convert("document_with_images.pdf")
 print(result.text_content)
 ```
 
-If no `llm_client` is provided the plugin still loads, but OCR is silently skipped and the standard built-in converter is used instead.
+如果未提供 `llm_client`，插件仍会加载，但 OCR 会被静默跳过，并使用标准的内置转换器。
 
-See [`packages/markitdown-ocr/README.md`](packages/markitdown-ocr/README.md) for detailed documentation.
+有关详细文档，请参阅 [`packages/markitdown-ocr/README.md`](packages/markitdown-ocr/README.md)。
 
 ### Azure Document Intelligence
 
-To use Microsoft Document Intelligence for conversion:
+要使用 Microsoft Document Intelligence 进行转换：
 
 ```bash
 markitdown path-to-file.pdf -o document.md -d -e "<document_intelligence_endpoint>"
 ```
 
-More information about how to set up an Azure Document Intelligence Resource can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/how-to-guides/create-document-intelligence-resource?view=doc-intel-4.0.0)
+有关如何设置 Azure Document Intelligence 资源的更多信息，可以在[此处](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/how-to-guides/create-document-intelligence-resource?view=doc-intel-4.0.0)找到
 
 ### Python API
 
-Basic usage in Python:
+基本用法：
 
 ```python
 from markitdown import MarkItDown
 
-md = MarkItDown(enable_plugins=False) # Set to True to enable plugins
+md = MarkItDown(enable_plugins=False) # 设置为 True 以启用插件
 result = md.convert("test.xlsx")
 print(result.text_content)
 ```
 
-Document Intelligence conversion in Python:
+Document Intelligence 转换：
 
 ```python
 from markitdown import MarkItDown
@@ -190,14 +187,14 @@ result = md.convert("test.pdf")
 print(result.text_content)
 ```
 
-To use Large Language Models for image descriptions (currently only for pptx and image files), provide `llm_client` and `llm_model`:
+要使用大型语言模型进行图像描述（目前仅适用于 pptx 和图片文件），请提供 `llm_client` 和 `llm_model`：
 
 ```python
 from markitdown import MarkItDown
 from openai import OpenAI
 
 client = OpenAI()
-md = MarkItDown(llm_client=client, llm_model="gpt-4o", llm_prompt="optional custom prompt")
+md = MarkItDown(llm_client=client, llm_model="gpt-4o", llm_prompt="可选的自定义提示")
 result = md.convert("example.jpg")
 print(result.text_content)
 ```
@@ -209,74 +206,67 @@ docker build -t markitdown:latest .
 docker run --rm -i markitdown:latest < ~/your-file.pdf > output.md
 ```
 
-## Contributing
+## 贡献
 
-This project welcomes contributions and suggestions. Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+本项目欢迎贡献和建议。大多数贡献需要您同意一份贡献者许可协议（CLA），声明您有权并且确实授予我们使用您的贡献的权利。有关详情，请访问 https://cla.opensource.microsoft.com。
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+当您提交拉取请求时，CLA 机器人将自动确定您是否需要提供 CLA 并适当地装饰 PR（例如，状态检查、评论）。只需按照机器人提供的说明操作即可。您只需要在使用我们的 CLA 的所有仓库中执行一次此操作。
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+本项目采用了 [Microsoft 开源行为准则](https://opensource.microsoft.com/codeofconduct/)。
+有关更多信息，请参阅 [行为准则常见问题解答](https://opensource.microsoft.com/codeofconduct/faq/) 或通过 [opencode@microsoft.com](mailto:opencode@microsoft.com) 联系，如有其他问题或意见。
 
-### How to Contribute
+### 如何贡献
 
-You can help by looking at issues or helping review PRs. Any issue or PR is welcome, but we have also marked some as 'open for contribution' and 'open for reviewing' to help facilitate community contributions. These are of course just suggestions and you are welcome to contribute in any way you like.
+您可以通过查看问题或帮助审查 PR 来提供帮助。任何问题或 PR 都受欢迎，但我们也标记了一些为"开放贡献"和"开放审查"的问题，以帮助促进社区贡献。这些当然只是建议，欢迎您以任何方式做出贡献。
 
 <div align="center">
 
-|            | All                                                          | Especially Needs Help from Community                                                                                                      |
-| ---------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Issues** | [All Issues](https://github.com/microsoft/markitdown/issues) | [Issues open for contribution](https://github.com/microsoft/markitdown/issues?q=is%3Aissue+is%3Aopen+label%3A%22open+for+contribution%22) |
-| **PRs**    | [All PRs](https://github.com/microsoft/markitdown/pulls)     | [PRs open for reviewing](https://github.com/microsoft/markitdown/pulls?q=is%3Apr+is%3Aopen+label%3A%22open+for+reviewing%22)              |
+|          | 全部                                                       | 特别需要社区帮助                                                                                                            |
+| -------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **问题** | [所有问题](https://github.com/microsoft/markitdown/issues) | [开放贡献的问题](https://github.com/microsoft/markitdown/issues?q=is%3Aissue+is%3Aopen+label%3A%22open+for+contribution%22) |
+| **PR**   | [所有 PR](https://github.com/microsoft/markitdown/pulls)   | [开放审查的 PR](https://github.com/microsoft/markitdown/pulls?q=is%3Apr+is%3Aopen+label%3A%22open+for+reviewing%22)         |
 
 </div>
 
-### Running Tests and Checks
+### 运行测试和检查
 
-- Navigate to the MarkItDown package:
+- 导航到 MarkItDown 包：
 
   ```sh
   cd packages/markitdown
   ```
 
-- Install `hatch` in your environment and run tests:
+- 在您的环境中安装 `hatch` 并运行测试：
 
   ```sh
-  pip install hatch  # Other ways of installing hatch: https://hatch.pypa.io/dev/install/
+  pip install hatch  # 其他安装 hatch 的方法：https://hatch.pypa.io/dev/install/
   hatch shell
   hatch test
   ```
 
-  (Alternative) Use the Devcontainer which has all the dependencies installed:
+  （替代方法）使用已安装所有依赖项的 Devcontainer：
 
   ```sh
-  # Reopen the project in Devcontainer and run:
+  # 在 Devcontainer 中重新打开项目并运行：
   hatch test
   ```
 
-- Run pre-commit checks before submitting a PR: `pre-commit run --all-files`
+- 在提交 PR 之前运行 pre-commit 检查：`pre-commit run --all-files`
 
-### Security Considerations
+### 安全注意事项
 
-MarkItDown performs I/O with the privileges of the current process. Like `open()` or `requests.get()`, it will access resources that the process itself can access. 
+MarkItDown 以当前进程的权限执行 I/O 操作。与 `open()` 或 `requests.get()` 类似，它将访问进程本身可以访问的资源。
 
-**Sanitize your inputs:** Do not pass untrusted input directly to MarkItDown. If any part of the input may be controlled by an untrusted user or system, such as in hosted or server-side applications, it must be validated and restricted before calling MarkItDown. Depending on your environment, this may include restricting file paths, limiting URI schemes and network destinations, and blocking access to private, loopback, link-local, or metadata-service addresses. 
+**清理您的输入：** 不要将不受信任的输入直接传递给 MarkItDown。如果输入的任何部分可能由不受信任的用户或系统控制，例如在托管或服务器端应用程序中，必须在调用 MarkItDown 之前对其进行验证和限制。根据您的环境，这可能包括限制文件路径、限制 URI 方案和网络目标，以及阻止访问私有、环回、链路本地或元数据服务地址。
 
-**Call only the conversion method you need:** Prefer the narrowest conversion API that fits your use case. MarkItDown's `convert()` method is intentionally permissive and can handle local files, remote URIs, and byte streams. If your application only needs to read local files, call `convert_local()` instead. If you need more control over URI fetching, call `requests.get()` yourself and pass the response object to `convert_response()`. For maximum control, open a stream to the input you want converted and call `convert_stream()`.
+**仅调用您需要的转换方法：** 优先选择最适合您用例的最窄转换 API。MarkItDown 的 `convert()` 方法故意宽松，可以处理本地文件、远程 URI 和字节流。如果您的应用程序只需要读取本地文件，请调用 `convert_local()`。如果您需要对 URI 获取进行更多控制，请自己调用 `requests.get()` 并将响应对象传递给 `convert_response()`。为了获得最大控制权，打开到您想要转换的输入的流并调用 `convert_stream()`。
 
-### Contributing 3rd-party Plugins
+### 贡献第三方插件
 
-You can also contribute by creating and sharing 3rd party plugins. See `packages/markitdown-sample-plugin` for more details.
+您还可以通过创建和分享第三方插件来做出贡献。有关更多详细信息，请参阅 `packages/markitdown-sample-plugin`。
 
-## Trademarks
+## 商标
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
-trademarks or logos is subject to and must follow
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+本项目可能包含项目、产品或服务的商标或徽标。授权使用微软商标或徽标必须遵守并遵循 [Microsoft 的商标和品牌指南](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general)。
+在本项目的修改版本中使用微软商标或徽标不得引起混淆或暗示微软赞助。
+任何使用第三方商标或徽标均须遵守这些第三方的政策。
