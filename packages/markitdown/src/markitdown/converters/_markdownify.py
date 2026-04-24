@@ -1,5 +1,6 @@
 import re
 import markdownify
+from bs4 import BeautifulSoup, Tag
 
 from typing import Any, Optional
 from urllib.parse import quote, unquote, urlparse, urlunparse
@@ -124,3 +125,93 @@ class _CustomMarkdownify(markdownify.MarkdownConverter):
 
     def convert_soup(self, soup: Any) -> str:
         return super().convert_soup(soup)  # type: ignore
+
+    def convert_table(
+        self,
+        el: Any,
+        text: str,
+        convert_as_inline: Optional[bool] = False,
+        **kwargs,
+    ) -> str:
+        """
+        处理含合并单元格（colspan/rowspan）的表格。
+        将合并单元格展开为独立格（重复填充内容），再转为标准 Markdown 表格。
+        不含合并单元格时走默认逻辑。
+        """
+        # 检查是否含合并单元格
+        has_merge = any(
+            int(cell.get("colspan", 1)) > 1 or int(cell.get("rowspan", 1)) > 1
+            for cell in el.find_all(["td", "th"])
+        )
+        if not has_merge:
+            return super().convert_table(el, text, convert_as_inline)  # type: ignore
+
+        # ── 展开合并单元格（参考 pandas 的实现方式） ──────────────────
+        # 收集所有行（忽略 thead/tbody/tfoot 层级）
+        rows = el.find_all("tr")
+        if not rows:
+            return super().convert_table(el, text, convert_as_inline)  # type: ignore
+
+        # 计算展开后的最大列数
+        max_cols = 0
+        for row in rows:
+            cols = sum(int(c.get("colspan", 1)) for c in row.find_all(["td", "th"]))
+            max_cols = max(max_cols, cols)
+        
+        if max_cols == 0:
+            return ""
+
+        # 构建二维网格，记录每个单元格的文本内容
+        grid: list[list[str]] = []
+        
+        for r_idx, row in enumerate(rows):
+            # 确保 grid 有足够的行
+            while len(grid) <= r_idx:
+                grid.append([""] * max_cols)
+            
+            c_idx = 0
+            for cell in row.find_all(["td", "th"]):
+                # 跳过已被 rowspan 占用的列
+                while c_idx < max_cols and grid[r_idx][c_idx] != "":
+                    c_idx += 1
+                
+                if c_idx >= max_cols:
+                    break
+                    
+                colspan = int(cell.get("colspan", 1))
+                rowspan = int(cell.get("rowspan", 1))
+                cell_text = cell.get_text(separator=" ", strip=True)
+                
+                # 填充 colspan × rowspan 区域
+                for dr in range(rowspan):
+                    for dc in range(colspan):
+                        rr, cc = r_idx + dr, c_idx + dc
+                        # 确保不越界
+                        if rr < len(rows) + 10 and cc < max_cols:  # +10 是为了兼容 rowspan 超出原始行数的情况
+                            # 扩展 grid 如果需要
+                            while len(grid) <= rr:
+                                grid.append([""] * max_cols)
+                            # 只填充空白单元格（避免覆盖）
+                            if grid[rr][cc] == "":
+                                grid[rr][cc] = cell_text
+                
+                c_idx += colspan
+
+        # 确保 grid 至少有数据行
+        if not grid:
+            return ""
+
+        # 生成 Markdown 表格
+        def _row_to_md(row_data: list[str]) -> str:
+            return "| " + " | ".join(row_data) + " |"
+
+        lines: list[str] = []
+        # 第一行作为表头
+        lines.append(_row_to_md(grid[0]))
+        # 分隔行
+        lines.append("| " + " | ".join(["---"] * max_cols) + " |")
+        # 数据行
+        for r_idx in range(1, len(grid)):
+            lines.append(_row_to_md(grid[r_idx]))
+
+        return "\n" + "\n".join(lines) + "\n\n"
