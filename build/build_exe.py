@@ -108,6 +108,9 @@ cmd = [
     '--workpath', str(project_root / 'build'),  # 临时文件在项目根目录的 build/
     '--specpath', str(project_root / 'build'),  # spec 文件在项目根目录的 build/
     '--hidden-import', 'markitdown',
+    '--hidden-import', '_version',
+    '--hidden-import', '_dialogs',
+    '--hidden-import', '_app',
     '--hidden-import', 'markitdown.__about__',
     '--hidden-import', 'markitdown.__main__',
     '--hidden-import', 'markitdown._base_converter',
@@ -179,7 +182,7 @@ cmd = [
     '--add-data', f"{project_root / 'res' / 'ProductIcon.ico'}{sep}res",
     '--paths', str(project_root / 'packages' / 'markitdown' / 'src'),
     '--windowed',
-    str(project_root / 'gui' / 'markitdown_gui.py')
+    str(project_root / 'gui' / 'main.py')
 ]
 
 log_step("步骤 2/3: 执行打包")
