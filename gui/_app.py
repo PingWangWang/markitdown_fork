@@ -68,7 +68,7 @@ class MarkItDownGUI:
 
         self.input_files     = []
         self.output_dir      = tk.StringVar()
-        self.image_mode = tk.StringVar(value='embed')  # 'file' | 'embed' | 'none'
+        self.image_mode = tk.StringVar(value='file')  # 'file' | 'embed' | 'none'
         self.is_processing   = False
         self.last_output_file = None  # 最后一次转换的输出路径（用于"打开文件夹并选中"）
 
