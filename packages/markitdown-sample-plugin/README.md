@@ -1,13 +1,12 @@
-# MarkItDown Sample Plugin
+# MarkItDown 示例插件
 
 [![PyPI](https://img.shields.io/pypi/v/markitdown-sample-plugin.svg)](https://pypi.org/project/markitdown-sample-plugin/)
 ![PyPI - Downloads](https://img.shields.io/pypi/dd/markitdown-sample-plugin)
 [![Built by AutoGen Team](https://img.shields.io/badge/Built%20by-AutoGen%20Team-blue)](https://github.com/microsoft/autogen)
 
+本项目展示如何为 MarkItDown 创建示例插件。最重要的部分如下：
 
-This project shows how to create a sample plugin for MarkItDown. The most important parts are as follows:
-
-Next, implement your custom DocumentConverter:
+接下来，实现您的自定义 DocumentConverter：
 
 ```python
 from typing import BinaryIO, Any
@@ -26,8 +25,8 @@ class RtfConverter(DocumentConverter):
         stream_info: StreamInfo,
         **kwargs: Any,
     ) -> bool:
-	
-	# Implement logic to check if the file stream is an RTF file
+
+	# 实现检查文件流是否为 RTF 文件的逻辑
 	# ...
 	raise NotImplementedError()
 
@@ -39,73 +38,69 @@ class RtfConverter(DocumentConverter):
         **kwargs: Any,
     ) -> DocumentConverterResult:
 
-	# Implement logic to convert the file stream to Markdown
+	# 实现将文件流转换为 Markdown 的逻辑
 	# ...
 	raise NotImplementedError()
 ```
 
-Next, make sure your package implements and exports the following:
+接下来，确保您的包实现并导出以下内容：
 
 ```python
-# The version of the plugin interface that this plugin uses. 
-# The only supported version is 1 for now.
-__plugin_interface_version__ = 1 
+# 此插件使用的插件接口版本。
+# 目前唯一支持的版本是 1
+__plugin_interface_version__ = 1
 
-# The main entrypoint for the plugin. This is called each time MarkItDown instances are created.
+# 插件的主要入口点。每次创建 MarkItDown 实例时都会调用此函数。
 def register_converters(markitdown: MarkItDown, **kwargs):
     """
-    Called during construction of MarkItDown instances to register converters provided by plugins.
+    在构造 MarkItDown 实例期间调用，以注册插件提供的转换器。
     """
 
-    # Simply create and attach an RtfConverter instance
+    # 简单创建并附加一个 RtfConverter 实例
     markitdown.register_converter(RtfConverter())
 ```
 
-
-Finally, create an entrypoint in the `pyproject.toml` file:
+最后，在 `pyproject.toml` 文件中创建一个入口点：
 
 ```toml
 [project.entry-points."markitdown.plugin"]
 sample_plugin = "markitdown_sample_plugin"
 ```
 
-Here, the value of `sample_plugin` can be any key, but should ideally be the name of the plugin. The value is the fully qualified name of the package implementing the plugin.
+这里，`sample_plugin` 的值可以是任何键，但理想情况下应该是插件的名称。该值是实现插件的包的完全限定名称。
 
+## 安装
 
-## Installation
-
-To use the plugin with MarkItDown, it must be installed. To install the plugin from the current directory use:
+要将插件与 MarkItDown 一起使用，必须安装它。要从当前目录安装插件，请使用：
 
 ```bash
 pip install -e .
 ```
 
-Once the plugin package is installed, verify that it is available to MarkItDown by running:
+安装插件包后，通过运行以下命令验证它在 MarkItDown 中可用：
 
 ```bash
 markitdown --list-plugins
 ```
 
-To use the plugin for a conversion use the `--use-plugins` flag. For example, to convert an RTF file:
+要在转换中使用插件，请使用 `--use-plugins` 标志。例如，要转换 RTF 文件：
 
 ```bash
 markitdown --use-plugins path-to-file.rtf
 ```
 
-In Python, plugins can be enabled as follows:
+在 Python 中，可以按以下方式启用插件：
 
 ```python
 from markitdown import MarkItDown
 
-md = MarkItDown(enable_plugins=True) 
+md = MarkItDown(enable_plugins=True)
 result = md.convert("path-to-file.rtf")
 print(result.text_content)
 ```
 
-## Trademarks
+## 商标
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
-trademarks or logos is subject to and must follow
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+本项目可能包含项目、产品或服务的商标或徽标。授权使用微软商标或徽标必须遵守并遵循 [Microsoft 的商标和品牌指南](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general)。
+在本项目的修改版本中使用微软商标或徽标不得引起混淆或暗示微软赞助。
+任何使用第三方商标或徽标均须遵守这些第三方的政策。
