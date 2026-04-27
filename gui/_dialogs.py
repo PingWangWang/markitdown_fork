@@ -7,6 +7,7 @@ MarkItDown GUI - 对话框组件
 """
 import threading
 import tkinter as tk
+import webbrowser
 
 from _version import APP_VERSION
 
@@ -41,6 +42,9 @@ def show_about(app):
             "转换大文件时请耐心等待，程序不会卡死",
             "输出的 Markdown 文件保存在所选的保存位置目录中",
         ]),
+        ("Markdown 转 Docx", [
+            "在线转换工具: https://markdowntoword.io/zh",
+        ]),
         ("项目来源", [
             "项目: https://github.com/microsoft/markitdown",
         ]),
@@ -50,8 +54,36 @@ def show_about(app):
         tk.Label(body, text=title, bg=app.C_BG, fg=app.C_HEADER_BG,
                  font=('Microsoft YaHei UI', 10, 'bold')).pack(anchor=tk.W, pady=(8, 2))
         for item in items:
-            tk.Label(body, text=f"  • {item}", bg=app.C_BG, fg=app.C_LABEL_FG,
-                     font=('Microsoft YaHei UI', 9), justify='left').pack(anchor=tk.W)
+            # 检查是否为 URL 文本（包含 http:// 或 https://）
+            if 'http://' in item or 'https://' in item:
+                # 提取 URL
+                url_start = item.find('http')
+                prefix = item[:url_start].rstrip(': ').rstrip()
+                url = item[url_start:]
+                
+                # 创建容器框架来保持整行内容一起
+                item_frame = tk.Frame(body, bg=app.C_BG)
+                item_frame.pack(fill=tk.X, anchor=tk.W, pady=1)
+                
+                # 创建前缀文本（如果有）
+                if prefix:
+                    tk.Label(item_frame, text=f"  • {prefix}: ", bg=app.C_BG, fg=app.C_LABEL_FG,
+                             font=('Microsoft YaHei UI', 9), justify='left').pack(side=tk.LEFT, anchor=tk.W)
+                else:
+                    tk.Label(item_frame, text="  • ", bg=app.C_BG, fg=app.C_LABEL_FG,
+                             font=('Microsoft YaHei UI', 9), justify='left').pack(side=tk.LEFT, anchor=tk.W)
+                
+                # 创建可点击的链接标签
+                link_label = tk.Label(item_frame, text=url, bg=app.C_BG, fg='#1E90FF',
+                                      font=('Microsoft YaHei UI', 9, 'underline'),
+                                      cursor='hand2', justify='left')
+                link_label.pack(side=tk.LEFT, anchor=tk.W)
+                link_label.bind('<Button-1>', lambda e, u=url: webbrowser.open(u))
+                link_label.bind('<Enter>', lambda e: e.widget.config(fg='#4169E1'))
+                link_label.bind('<Leave>', lambda e: e.widget.config(fg='#1E90FF'))
+            else:
+                tk.Label(body, text=f"  • {item}", bg=app.C_BG, fg=app.C_LABEL_FG,
+                         font=('Microsoft YaHei UI', 9), justify='left').pack(anchor=tk.W, pady=1)
 
     # 底部
     tk.Frame(dlg, bg=app.C_BORDER, height=1).pack(fill=tk.X, pady=(8, 0))
