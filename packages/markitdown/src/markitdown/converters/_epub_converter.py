@@ -6,6 +6,7 @@ from xml.dom.minidom import Document
 from typing import BinaryIO, Any, Dict, List
 
 from ._html_converter import HtmlConverter
+from ..converter_utils.image_reference import ImageReferenceCollector
 from .._base_converter import DocumentConverterResult
 from .._stream_info import StreamInfo
 
@@ -56,6 +57,10 @@ class EpubConverter(HtmlConverter):
         stream_info: StreamInfo,
         **kwargs: Any,  # Options to pass to the converter
     ) -> DocumentConverterResult:
+        # 检查是否使用引用式图片嵌入
+        embed_images = kwargs.pop("epub_embed_images", False)
+        image_collector = ImageReferenceCollector() if embed_images else None
+        
         with zipfile.ZipFile(file_stream, "r") as z:
             # Extracts metadata (title, authors, language, publisher, date, description, cover) from an EPUB file."""
 
@@ -105,6 +110,12 @@ class EpubConverter(HtmlConverter):
                         filename = os.path.basename(file)
                         extension = os.path.splitext(filename)[1].lower()
                         mimetype = MIME_TYPE_MAPPING.get(extension)
+                        
+                        # 传递图片收集器到 HTML 转换器
+                        convert_kwargs = {**kwargs}
+                        if image_collector:
+                            convert_kwargs["image_collector"] = image_collector
+                        
                         converted_content = self._html_converter.convert(
                             f,
                             StreamInfo(
@@ -112,6 +123,7 @@ class EpubConverter(HtmlConverter):
                                 extension=extension,
                                 filename=filename,
                             ),
+                            **convert_kwargs
                         )
                         markdown_content.append(converted_content.markdown.strip())
 
@@ -124,9 +136,15 @@ class EpubConverter(HtmlConverter):
                     metadata_markdown.append(f"**{key.capitalize()}:** {value}")
 
             markdown_content.insert(0, "\n".join(metadata_markdown))
+            
+            result_markdown = "\n\n".join(markdown_content)
+            
+            # 添加图片引用定义
+            if image_collector and image_collector.has_images():
+                result_markdown += image_collector.get_references_markdown()
 
             return DocumentConverterResult(
-                markdown="\n\n".join(markdown_content), title=metadata["title"]
+                markdown=result_markdown, title=metadata["title"]
             )
 
     def _get_text_from_node(self, dom: Document, tag_name: str) -> str | None:

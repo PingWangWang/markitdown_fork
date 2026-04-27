@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup, Tag
 
 from typing import Any, Optional
 from urllib.parse import quote, unquote, urlparse, urlunparse
+from ..converter_utils.image_reference import ImageReferenceCollector
 
 
 class _CustomMarkdownify(markdownify.MarkdownConverter):
@@ -19,6 +20,8 @@ class _CustomMarkdownify(markdownify.MarkdownConverter):
     def __init__(self, **options: Any):
         options["heading_style"] = options.get("heading_style", markdownify.ATX)
         options["keep_data_uris"] = options.get("keep_data_uris", False)
+        # 保存图片引用收集器
+        self._image_collector: Optional[ImageReferenceCollector] = options.pop("image_collector", None)
         # Explicitly cast options to the expected type if necessary
         super().__init__(**options)
 
@@ -90,7 +93,7 @@ class _CustomMarkdownify(markdownify.MarkdownConverter):
         convert_as_inline: Optional[bool] = False,
         **kwargs,
     ) -> str:
-        """Same as usual converter, but removes data URIs"""
+        """Same as usual converter, but supports reference-style image embedding"""
 
         alt = el.attrs.get("alt", None) or ""
         src = el.attrs.get("src", None) or el.attrs.get("data-src", None) or ""
@@ -103,6 +106,43 @@ class _CustomMarkdownify(markdownify.MarkdownConverter):
             and el.parent.name not in self.options["keep_inline_images_in"]
         ):
             return alt
+
+        # 如果使用引用式嵌入且是 data URI
+        if src.startswith("data:") and self._image_collector is not None:
+            # 解析 data URI
+            try:
+                # data:[<mediatype>][;base64],<data>
+                header, data = src.split(",", 1)
+                meta = header[5:]  # Strip 'data:'
+                parts = meta.split(";")
+                
+                # 提取 MIME 类型
+                mime_type = parts[0] if parts and parts[0] else "image/png"
+                
+                # 检查是否是 base64
+                is_base64 = parts[-1] == "base64" if parts else False
+                if is_base64:
+                    parts.pop()
+                
+                # 检查是否是占位符格式（来自 DOCX 等转换器）
+                if data.startswith("PLACEHOLDER_"):
+                    # 提取 img_id
+                    img_id = data.replace("PLACEHOLDER_", "")
+                    # 使用引用标识符（引用式语法：![alt][ref]）
+                    return "![%s][%s]%s" % (alt, img_id, title_part)
+                
+                # 解码 base64 数据
+                import base64
+                image_bytes = base64.b64decode(data) if is_base64 else data.encode("utf-8")
+                
+                # 添加到收集器
+                img_id = self._image_collector.add_image(image_bytes, mime_type)
+                
+                # 使用引用标识符（引用式语法：![alt][ref]）
+                return "![%s][%s]%s" % (alt, img_id, title_part)
+            except Exception:
+                # 如果解析失败，回退到原始行为
+                pass
 
         # Remove dataURIs
         if src.startswith("data:") and not self.options["keep_data_uris"]:

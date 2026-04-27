@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from .._base_converter import DocumentConverter, DocumentConverterResult
 from .._stream_info import StreamInfo
 from ._markdownify import _CustomMarkdownify
+from ..converter_utils.image_reference import ImageReferenceCollector
 
 ACCEPTED_MIME_TYPE_PREFIXES = [
     "text/html",
@@ -48,6 +49,9 @@ class HtmlConverter(DocumentConverter):
         # Pop our own keyword before forwarding the rest to markdownify.
         # strict=True raises RecursionError instead of falling back to plain text.
         strict: bool = kwargs.pop("strict", False)
+        
+        # 获取图片引用收集器（如果存在），并从 kwargs 中移除避免重复传递
+        image_collector: Optional[ImageReferenceCollector] = kwargs.pop("image_collector", None)
 
         # Parse the stream
         encoding = "utf-8" if stream_info.charset is None else stream_info.charset
@@ -62,9 +66,15 @@ class HtmlConverter(DocumentConverter):
         webpage_text = ""
         try:
             if body_elm:
-                webpage_text = _CustomMarkdownify(**kwargs).convert_soup(body_elm)
+                webpage_text = _CustomMarkdownify(
+                    **kwargs, 
+                    image_collector=image_collector
+                ).convert_soup(body_elm)
             else:
-                webpage_text = _CustomMarkdownify(**kwargs).convert_soup(soup)
+                webpage_text = _CustomMarkdownify(
+                    **kwargs,
+                    image_collector=image_collector
+                ).convert_soup(soup)
         except RecursionError:
             if strict:
                 raise

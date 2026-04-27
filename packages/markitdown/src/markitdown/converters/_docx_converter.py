@@ -7,6 +7,7 @@ from typing import BinaryIO, Any, Optional
 
 from ._html_converter import HtmlConverter
 from ..converter_utils.docx.pre_process import pre_process_docx
+from ..converter_utils.image_reference import ImageReferenceCollector
 from .._base_converter import DocumentConverterResult
 from .._stream_info import StreamInfo
 from .._exceptions import MissingDependencyException, MISSING_DEPENDENCY_MESSAGE
@@ -76,28 +77,43 @@ class DocxConverter(HtmlConverter):
                 _dependency_exc_info[2]
             )
 
-        import base64
-
         style_map = kwargs.get("style_map", None)
         images_dir: Optional[str] = kwargs.pop("docx_images_dir", None)
         embed_images: bool = kwargs.pop("docx_embed_images", False)
         pre_process_stream = pre_process_docx(file_stream)
 
         if embed_images:
-            # 将图片以 base64 data URI 形式直接嵌入 Markdown，单文件无依赖
+            # 使用引用式语法嵌入图片
+            collector = ImageReferenceCollector()
+            
             def _embed_image(image):
                 with image.open() as f:
-                    data = base64.b64encode(f.read()).decode("ascii")
+                    image_bytes = f.read()
                 mime = image.content_type or "image/png"
-                return {"src": f"data:{mime};base64,{data}"}
+                img_id = collector.add_image(image_bytes, mime)
+                # 使用 data URI 作为 src，让 markdownify 的引用式逻辑生效
+                # 这里先用一个占位 data URI，实际会被 markdownify 替换
+                return {"src": f"data:{mime};base64,PLACEHOLDER_{img_id}"}
 
             html = mammoth.convert_to_html(
                 pre_process_stream,
                 style_map=style_map,
                 convert_image=mammoth.images.img_element(_embed_image),
             ).value
-            # 告知下游 markdownify 保留 data URI，不截断
-            kwargs["keep_data_uris"] = True
+            
+            # 转换为 Markdown（markdownify 会自动处理 data URI 为引用式）
+            kwargs["image_collector"] = collector
+            result = self._html_converter.convert_string(html, **kwargs)
+            
+            # 在文末添加图片引用定义
+            if collector.has_images():
+                references_text = collector.get_references_markdown()
+                result = DocumentConverterResult(
+                    markdown=result.markdown + references_text,
+                    title=result.title
+                )
+            
+            return result
         elif images_dir:
             # 将图片提取为独立文件，在 Markdown 中用相对路径引用
             images_path = Path(images_dir)

@@ -370,9 +370,15 @@ class MarkItDownGUI:
                     images_dir = Path(self.output_dir.get()) / f"{stem}_images"
                     convert_kwargs['pptx_images_dir'] = str(images_dir)
                 elif mode == 'embed':
-                    convert_kwargs['keep_data_uris'] = True
+                    convert_kwargs['pptx_embed_images'] = True
+            elif ext in ('.epub',):
+                if mode == 'file':
+                    images_dir = Path(self.output_dir.get()) / f"{stem}_images"
+                    convert_kwargs['epub_images_dir'] = str(images_dir)
+                elif mode == 'embed':
+                    convert_kwargs['epub_embed_images'] = True
             else:
-                # 其他格式（HTML、EPUB 等）：嵌入模式透传 keep_data_uris
+                # 其他格式（HTML 等）：嵌入模式透传 keep_data_uris
                 if mode == 'embed':
                     convert_kwargs['keep_data_uris'] = True
 

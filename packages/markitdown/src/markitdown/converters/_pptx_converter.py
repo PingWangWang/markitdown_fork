@@ -11,6 +11,7 @@ from operator import attrgetter
 
 from ._html_converter import HtmlConverter
 from ._llm_caption import llm_caption
+from ..converter_utils.image_reference import ImageReferenceCollector
 from .._base_converter import DocumentConverter, DocumentConverterResult
 from .._stream_info import StreamInfo
 from .._exceptions import MissingDependencyException, MISSING_DEPENDENCY_MESSAGE
@@ -85,6 +86,10 @@ class PptxConverter(DocumentConverter):
         if _images_path:
             _images_path.mkdir(parents=True, exist_ok=True)
         _image_counter = [0]
+        
+        # 用于引用式图片嵌入
+        _image_collector = ImageReferenceCollector()
+        _use_reference_style = kwargs.get("pptx_embed_images", False)
 
         # Perform the conversion
         presentation = pptx.Presentation(file_stream)
@@ -159,6 +164,11 @@ class PptxConverter(DocumentConverter):
                         (_images_path / filename).write_bytes(shape.image.blob)
                         img_src = f"{_images_path.name}/{filename}"
                         md_content += f"\n![{alt_text}]({img_src})\n"
+                    # 使用引用式语法嵌入图片
+                    elif _use_reference_style:
+                        content_type = shape.image.content_type or "image/png"
+                        img_id = _image_collector.add_image(shape.image.blob, content_type)
+                        md_content += f"\n![{alt_text}][{img_id}]\n"
                     # If keep_data_uris is True, use base64 encoding for images
                     elif kwargs.get("keep_data_uris", False):
                         blob = shape.image.blob
@@ -214,6 +224,10 @@ class PptxConverter(DocumentConverter):
                 if notes_frame is not None:
                     md_content += notes_frame.text
                 md_content = md_content.strip()
+
+        # 在文末添加图片引用定义
+        if _use_reference_style and _image_collector.has_images():
+            md_content += _image_collector.get_references_markdown()
 
         return DocumentConverterResult(markdown=md_content.strip())
 
