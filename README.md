@@ -13,7 +13,7 @@ MarkItDown 目前支持从以下格式转换：
 
 - PDF
 - PowerPoint
-- Word
+- Word（支持自动标题编号保留、图片引用式嵌入）
 - Excel
 - 图片（EXIF 元数据和 OCR）
 - 音频（EXIF 元数据和语音转录）
@@ -175,6 +175,51 @@ from markitdown import MarkItDown
 md = MarkItDown(enable_plugins=False) # 设置为 True 以启用插件
 result = md.convert("test.xlsx")
 print(result.text_content)
+```
+
+#### Word 文档增强功能
+
+**自动标题编号保留**：
+
+转换 DOCX 文件时，MarkItDown 会自动识别并保留 Word 中的标题编号（如 `1.`, `1.1`, `1.2.1` 等）。如果用户已手动输入编号，系统会智能检测并避免重复添加。
+
+```python
+from markitdown import MarkItDown
+
+md = MarkItDown()
+result = md.convert("document.docx")
+# 输出：
+# # 1 引言
+# ## 1.1 编写目的
+# ### 1.2.1 行业背景
+print(result.text_content)
+```
+
+**图片引用式嵌入**：
+
+当需要将图片嵌入到 Markdown 时，使用引用式语法将 Base64 数据放在文末，正文使用简洁的标识符：
+
+```python
+from markitdown import MarkItDown
+
+md = MarkItDown()
+result = md.convert("document.docx", docx_embed_images=True)
+# 输出格式：
+# 正文：![描述][img-1]
+# 文末：
+# ---
+# [img-1]: data:image/png;base64,iVBORw0KG...
+print(result.text_content)
+```
+
+**图片保存为文件**：
+
+```python
+from markitdown import MarkItDown
+
+md = MarkItDown()
+result = md.convert("document.docx", docx_images_dir="./output_images")
+# 图片将保存到 ./output_images 目录，正文使用相对路径引用
 ```
 
 Document Intelligence 转换：
