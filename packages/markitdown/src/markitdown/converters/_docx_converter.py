@@ -1,5 +1,6 @@
 import sys
 import io
+import re
 from pathlib import Path
 from warnings import warn
 
@@ -17,6 +18,7 @@ from .._exceptions import MissingDependencyException, MISSING_DEPENDENCY_MESSAGE
 _dependency_exc_info = None
 try:
     import mammoth
+    import docx
 
 except ImportError:
     # Preserve the error and stack trace for later
@@ -80,7 +82,72 @@ class DocxConverter(HtmlConverter):
         style_map = kwargs.get("style_map", None)
         images_dir: Optional[str] = kwargs.pop("docx_images_dir", None)
         embed_images: bool = kwargs.pop("docx_embed_images", False)
-        pre_process_stream = pre_process_docx(file_stream)
+        
+        # 预处理：将编号注入到标题文本中
+        try:
+            # 读取文档
+            file_stream.seek(0)
+            doc = docx.Document(file_stream)
+            
+            # 跟踪每个级别的编号
+            heading_counters = [0] * 10  # 支持最多 10 级标题
+            
+            # 遍历所有段落
+            for para in doc.paragraphs:
+                if para.style.name.startswith('Heading'):
+                    # 提取标题级别
+                    level = int(para.style.name.split()[-1]) - 1  # Heading 1 -> 0
+                    
+                    # 更新计数器
+                    heading_counters[level] += 1
+                    # 重置更低级别的计数器
+                    for i in range(level + 1, len(heading_counters)):
+                        heading_counters[i] = 0
+                    
+                    # 生成编号字符串
+                    number_parts = []
+                    for i in range(level + 1):
+                        if heading_counters[i] > 0:
+                            number_parts.append(str(heading_counters[i]))
+                    number_str = '.'.join(number_parts)
+                    
+                    # 将编号添加到段落文本开头
+                    if para.runs:
+                        # 保存原文本
+                        original_text = para.text.strip()
+                        
+                        # 校验：检查是否已经手动输入了编号
+                        # 匹配模式：数字开头，如 "1.", "1.1", "1.1.1", "1、", "第一章" 等
+                        has_manual_number = bool(re.match(
+                            r'^(\d+[.、]\s*)+'  # "1." 或 "1.1." 或 "1、" 等
+                            r'|^(第[\u4e00-\u9fa5]+[章节篇])'  # "第一章" "第一节" 等
+                            r'|^([\u2460-\u24ff]|[(\uff08]\d+[)\uff09])',  # "①" 或 "(1)" 等
+                            original_text
+                        ))
+                        
+                        # 只有在没有手动编号的情况下才添加自动编号
+                        if not has_manual_number:
+                            # 清空所有 runs
+                            for run in para.runs:
+                                run.text = ''
+                            # 在第一个 run 中添加编号和原文本
+                            if para.runs:
+                                para.runs[0].text = f"{number_str} {original_text}"
+            
+            # 将修改后的文档写入 BytesIO
+            modified_stream = io.BytesIO()
+            doc.save(modified_stream)
+            modified_stream.seek(0)
+            
+            # 使用修改后的流进行预处理和转换
+            pre_process_stream = pre_process_docx(modified_stream)
+        except ImportError:
+            # 如果没有安装 python-docx，使用原始流
+            pre_process_stream = pre_process_docx(file_stream)
+        except Exception:
+            # 如果处理失败，使用原始流
+            file_stream.seek(0)
+            pre_process_stream = pre_process_docx(file_stream)
 
         if embed_images:
             # 使用引用式语法嵌入图片

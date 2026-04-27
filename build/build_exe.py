@@ -162,6 +162,7 @@ cmd = [
     '--hidden-import', 'pdfminer',
     '--hidden-import', 'pdfplumber',
     '--hidden-import', 'mammoth',
+    '--hidden-import', 'docx',
     '--hidden-import', 'openpyxl',
     '--hidden-import', 'xlrd',
     '--hidden-import', 'lxml',
