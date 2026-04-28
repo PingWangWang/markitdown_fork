@@ -21,9 +21,21 @@ if getattr(sys, '_MEIPASS', None) and sys._MEIPASS not in sys.path:
 import tkinter as tk
 from _app import MarkItDownGUI
 
+# 尝试导入 tkinterdnd2 以支持拖拽功能
+try:
+    from tkinterdnd2 import TkinterDnD
+    USE_DND = True
+except ImportError:
+    USE_DND = False
+
 
 def main():
-    root = tk.Tk()
+    # 如果可用，使用支持拖拽的 Tk 类
+    if USE_DND:
+        root = TkinterDnD.Tk()
+    else:
+        root = tk.Tk()
+    
     MarkItDownGUI(root)
     root.mainloop()
 

@@ -174,6 +174,8 @@ cmd = [
     '--hidden-import', 'youtube_transcript_api',
     '--hidden-import', 'olefile',
     '--hidden-import', 'pandas',
+    '--hidden-import', 'tkinterdnd2',
+    '--hidden-import', 'tkinterdnd2.TkinterDnD',
     '--hidden-import', 'azure.ai.documentintelligence',
     '--hidden-import', 'azure.identity',
     '--hidden-import', 'azure.core',

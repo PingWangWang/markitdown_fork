@@ -74,6 +74,7 @@ class MarkItDownGUI:
 
         self.setup_styles()
         self.create_widgets()
+        self.setup_drag_drop()
 
         # 窗口完全显示后再次应用图标，确保任务栏图标生效
         self.root.after(100, self._set_window_icon)
@@ -177,15 +178,31 @@ class MarkItDownGUI:
         mf.columnconfigure(1, weight=1)
         row = 0
 
-        # 选择待处理文件
+        # 选择待处理文件（改为列表）
         ttk.Label(mf, text="选择待处理文件:", style='Field.TLabel').grid(
-            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
+            row=row, column=0, sticky=tk.NW, pady=4, padx=(0, 8))
         ff = ttk.Frame(mf);  ff.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
         ff.columnconfigure(0, weight=1)
-        self.file_entry = ttk.Entry(ff, state='readonly')
-        self.file_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 6))
-        ttk.Button(ff, text="选择文件", command=self.select_files,
-                   style='Select.TButton', width=10).grid(row=0, column=1)
+        
+        # 文件列表框
+        self.file_listbox = tk.Listbox(ff, height=5, font=('Microsoft YaHei UI', 9),
+                                        bg=self.C_ENTRY_BG, fg='#1F2937',
+                                        selectbackground=self.C_BTN_SEL,
+                                        selectforeground='#FFFFFF',
+                                        relief='flat', borderwidth=0)
+        self.file_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 6))
+        
+        # 右侧按钮
+        btn_frame = ttk.Frame(ff)
+        btn_frame.grid(row=0, column=1, sticky=tk.N)
+        ttk.Button(btn_frame, text="添加文件", command=self.select_files,
+                   style='Select.TButton', width=10).pack(pady=2)
+        ttk.Button(btn_frame, text="删除选中", command=self.remove_selected_files,
+                   style='Select.TButton', width=10).pack(pady=2)
+        ttk.Button(btn_frame, text="清空列表", command=self.clear_file_list,
+                   style='Select.TButton', width=10).pack(pady=2)
+        
+        ff.rowconfigure(0, weight=1)
         row += 1
 
         # 选择保存位置
@@ -279,18 +296,88 @@ class MarkItDownGUI:
         files = filedialog.askopenfilenames(title="选择要转换的文件", filetypes=filetypes)
         if not files:
             return
-        self.input_files = list(files)
-        display = files[0] if len(files) == 1 else f"已选择 {len(files)} 个文件"
-        self.file_entry.configure(state='normal')
-        self.file_entry.delete(0, tk.END)
-        self.file_entry.insert(0, display)
-        self.file_entry.configure(state='readonly')
-        self.output_dir.set(str(Path(files[0]).parent))
+        # 添加到现有文件列表
+        for f in files:
+            if f not in self.input_files:
+                self.input_files.append(f)
+        self.update_file_listbox()
+        # 如果还没有设置输出目录，使用第一个文件的目录
+        if not self.output_dir.get() and self.input_files:
+            self.output_dir.set(str(Path(self.input_files[0]).parent))
 
     def select_output_dir(self):
         d = filedialog.askdirectory(title="选择保存位置")
         if d:
             self.output_dir.set(d)
+
+    def update_file_listbox(self):
+        """更新文件列表框的显示"""
+        self.file_listbox.delete(0, tk.END)
+        for f in self.input_files:
+            # 显示文件名，如果太长则截断
+            name = Path(f).name
+            if len(name) > 50:
+                name = name[:47] + "..."
+            self.file_listbox.insert(tk.END, name)
+
+    def remove_selected_files(self):
+        """删除选中的文件"""
+        selection = self.file_listbox.curselection()
+        if not selection:
+            return
+        # 从后往前删除，避免索引变化
+        for index in reversed(selection):
+            del self.input_files[index]
+        self.update_file_listbox()
+
+    def clear_file_list(self):
+        """清空文件列表"""
+        self.input_files.clear()
+        self.update_file_listbox()
+
+    def setup_drag_drop(self):
+        """设置拖拽支持（Windows 平台）"""
+        if sys.platform != 'win32':
+            return
+        
+        try:
+            # 使用 tkinterdnd2 库实现拖拽
+            from tkinterdnd2 import DND_FILES
+            
+            # 为文件列表框绑定拖拽事件
+            self.file_listbox.drop_target_register(DND_FILES)
+            self.file_listbox.dnd_bind('<<Drop>>', self._handle_drop)
+            
+            # 也为整个窗口绑定拖拽
+            self.root.drop_target_register(DND_FILES)
+            self.root.dnd_bind('<<Drop>>', self._handle_drop)
+        except Exception:
+            # 如果 tkinterdnd2 不可用，拖拽功能将不可用，但不影响其他功能
+            pass
+
+    def _handle_drop(self, event):
+        """处理文件拖拽事件"""
+        try:
+            # 获取拖拽的文件路径
+            files = self.root.splitlist(event.data)
+            
+            # 添加有效的文件
+            added = False
+            for file_path in files:
+                # 检查是否是支持的文件格式
+                ext = Path(file_path).suffix.lower()
+                if ext in _FILE_TYPE_MAP or ext in ('.txt', '.md', '.rtf'):
+                    if file_path not in self.input_files:
+                        self.input_files.append(file_path)
+                        added = True
+            
+            if added:
+                self.update_file_listbox()
+                # 如果还没有设置输出目录，使用第一个文件的目录
+                if not self.output_dir.get() and self.input_files:
+                    self.output_dir.set(str(Path(self.input_files[0]).parent))
+        except Exception as e:
+            self.log_message(f"拖拽文件失败: {e}")
 
     def open_output_dir(self):
         out = self.output_dir.get()
