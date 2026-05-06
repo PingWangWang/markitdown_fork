@@ -68,7 +68,7 @@ class MarkItDownGUI:
 
         self.input_files     = []
         self.output_dir      = tk.StringVar()
-        self.image_mode = tk.StringVar(value='file')  # 'file' | 'embed' | 'none'
+        self.image_mode = tk.StringVar(value='embed')  # 'file' | 'embed' | 'none'
         self.is_processing   = False
         self.last_output_file = None  # 最后一次转换的输出路径（用于"打开文件夹并选中"）
 
@@ -124,8 +124,8 @@ class MarkItDownGUI:
         self.C_BTN_RUN_A  = '#1E8449'
         self.C_BTN_OPEN   = '#E67E22'
         self.C_BTN_OPEN_A = '#CA6F1E'
-        self.C_LOG_BG     = '#1E2533'
-        self.C_LOG_FG     = '#D4E6F1'
+        self.C_LOG_BG     = '#FFFFFF'
+        self.C_LOG_FG     = '#000000'
         self.C_LINK       = '#2E86C1'
         self.C_LINK_RED   = '#E74C3C'
         self.C_BORDER     = '#D1D9E6'
@@ -242,6 +242,11 @@ class MarkItDownGUI:
         ttk.Button(bf, text="📂  打开输出目录",
                    command=self.open_output_dir,
                    style='Open.TButton', width=14).pack(side=tk.LEFT, padx=6)
+        self.open_doc_button = ttk.Button(bf, text="📄  打开文档",
+                                          command=self.open_last_document,
+                                          style='Open.TButton', width=14,
+                                          state='disabled')
+        self.open_doc_button.pack(side=tk.LEFT, padx=6)
         row += 1
 
         # 日志区域
@@ -255,9 +260,9 @@ class MarkItDownGUI:
             relief='flat', borderwidth=0, state='disabled')
         self.log_text.grid(row=row, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(8, 2))
         mf.rowconfigure(row, weight=1)
-        for tag, color in [('success', '#2ECC71'), ('error',    '#E74C3C'),
-                           ('info',    '#5DADE2'), ('arrow',    '#F0B429'),
-                           ('complete','#A9CCE3'), ('normal',   self.C_LOG_FG)]:
+        for tag, color in [('success', '#27AE60'), ('error',    '#E74C3C'),
+                           ('info',    '#F39C12'), ('arrow',    '#F39C12'),
+                           ('complete','#2980B9'), ('normal',   self.C_LOG_FG)]:
             self.log_text.tag_configure(tag, foreground=color)
         row += 1
 
@@ -484,6 +489,11 @@ class MarkItDownGUI:
     def processing_complete(self):
         self.is_processing = False
         self.process_button.configure(state='normal')
+        # 如果只转换了一个文件且成功，启用"打开文档"按钮
+        if len(self.input_files) == 1 and self.last_output_file and os.path.exists(self.last_output_file):
+            self.open_doc_button.configure(state='normal')
+        else:
+            self.open_doc_button.configure(state='disabled')
 
     # ── 对话框（委托给 _dialogs 模块）────────────────────────────────────────
 
@@ -492,6 +502,20 @@ class MarkItDownGUI:
 
     def show_about(self):
         show_about(self)
+
+    def open_last_document(self):
+        """打开最后转换的文档"""
+        if not self.last_output_file or not os.path.exists(self.last_output_file):
+            messagebox.showwarning("警告", "没有可打开的文档！");  return
+        try:
+            if sys.platform == 'win32':
+                os.startfile(self.last_output_file)
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', self.last_output_file])
+            else:
+                subprocess.run(['xdg-open', self.last_output_file])
+        except Exception as e:
+            messagebox.showerror("错误", f"无法打开文档：{e}")
 
     def show_contact(self):
         messagebox.showinfo("联系我们",
