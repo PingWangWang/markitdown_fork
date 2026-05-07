@@ -338,6 +338,7 @@ class MarkItDownGUI:
     def clear_file_list(self):
         """清空文件列表"""
         self.input_files.clear()
+        self.output_dir.set('')
         self.update_file_listbox()
 
     def setup_drag_drop(self):
