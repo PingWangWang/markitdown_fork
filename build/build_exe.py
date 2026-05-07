@@ -32,6 +32,29 @@ def log_success(msg):
 def log_error(msg):
     print(f"\n  [FAIL] {msg}")
 
+def safe_remove_dir(dir_path: Path, max_retries: int = 3):
+    """
+    安全地删除目录，处理 Windows 下文件被占用的情况
+    
+    Args:
+        dir_path: 要删除的目录路径
+        max_retries: 最大重试次数
+    """
+    import time
+    
+    for attempt in range(max_retries):
+        try:
+            if dir_path.exists():
+                shutil.rmtree(dir_path)
+                return True
+        except PermissionError:
+            if attempt < max_retries - 1:
+                log_info(f"等待文件释放... ({attempt + 1}/{max_retries})")
+                time.sleep(1)  # 等待 1 秒后重试
+            else:
+                raise
+    return False
+
 # 获取项目根目录（build_exe.py 在 build/ 目录，需要向上一级）
 project_root = Path(__file__).parent.parent
 
@@ -73,17 +96,29 @@ if build_dir.exists():
     for item in build_dir.iterdir():
         if item.name not in ['build_exe.py', 'README.md', 'hook_onnxruntime.py']:
             if item.is_dir():
-                shutil.rmtree(item)
-                log_info(f"已删除 {item.name}/")
+                try:
+                    shutil.rmtree(item)
+                    log_info(f"已删除 {item.name}/")
+                except PermissionError:
+                    log_info(f"跳过被占用的目录: {item.name}/")
             else:
-                item.unlink()
-                log_info(f"已删除 {item.name}")
+                try:
+                    item.unlink()
+                    log_info(f"已删除 {item.name}")
+                except PermissionError:
+                    log_info(f"跳过被占用的文件: {item.name}")
 
 # 清理 dist 目录
 dist_dir = project_root / 'dist'
 if dist_dir.exists():
-    shutil.rmtree(dist_dir)
-    log_info("已删除 dist/ 目录")
+    try:
+        safe_remove_dir(dist_dir)
+        log_info("已删除 dist/ 目录")
+    except PermissionError as e:
+        log_error(f"无法删除 dist/ 目录: {e}")
+        log_info("提示: 请关闭所有使用该目录下 exe 文件的程序后重试")
+        log_info("或者手动删除 dist/ 目录后重新运行打包脚本")
+        sys.exit(1)
 
 # 删除旧的 .spec 文件（在项目根目录和 build/ 目录）
 for spec_file in list(project_root.glob('*.spec')) + list(build_dir.glob('*.spec')):
